@@ -18,4 +18,4 @@ else:
         image = uploaded_to_bgr(file); blurred, mask, segmented = gaussian_colour(image, k, lo, hi)
         for col, pic, label in zip(st.columns(4), (image, blurred, mask, segmented), ("Original", "Gaussian filtered", "HSV mask", "Segmented")): col.image(pic, channels="BGR" if pic.ndim == 3 else "GRAY", caption=label)
         if st.button("Run YOLOv8 Detection"):
-            result, objects, _ = detect(segmented); st.image(result, channels="BGR"); st.write(f"Defects: {len(objects)}"); st.dataframe(objects, column_config={0:"Defect",1:"Confidence"})
+            result, objects, _ = detect(segmented, "leyi"); st.image(result, channels="BGR"); st.write(f"Defects: {len(objects)}"); st.dataframe(objects, column_config={0:"Defect",1:"Confidence"})

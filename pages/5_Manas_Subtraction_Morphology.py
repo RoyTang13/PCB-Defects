@@ -17,4 +17,4 @@ else:
         (st.success if ok else st.warning)(msg)
         for col, pic, label in zip(st.columns(3), (ref, defect, aligned, diff, binary, morph), ("Reference", "Defective", "Aligned reference", "Difference", "Binary", "Morphological result")): col.image(pic, channels="BGR" if pic.ndim == 3 else "GRAY", caption=label)
         if st.button("Run YOLOv8 Detection"):
-            result, objects, _ = detect(defect); st.image(result, channels="BGR"); st.write(f"Defects: {len(objects)}")
+            result, objects, _ = detect(defect, "manas"); st.image(result, channels="BGR"); st.write(f"Defects: {len(objects)}")

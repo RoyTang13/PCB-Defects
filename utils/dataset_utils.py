@@ -20,12 +20,20 @@ def xml_to_yolo(xml_path, label_path):
 
 def convert_and_split(source_images, source_xml, destination=DATASET_DIR, seed=42):
     """Create one reproducible 70/15/15 split. Run once and reuse it for all experiments."""
-    images = [p for p in Path(source_images).iterdir() if p.suffix.lower() in {".jpg", ".jpeg", ".png", ".bmp"}]
+    source_images, source_xml, destination = Path(source_images), Path(source_xml), Path(destination)
+    # The supplied Kaggle archive stores both images and XMLs in class subfolders.
+    images = [p for p in source_images.rglob("*") if p.suffix.lower() in {".jpg", ".jpeg", ".png", ".bmp"}]
+    xml_by_stem = {path.stem.lower(): path for path in source_xml.rglob("*.xml")}
+    if not images:
+        raise FileNotFoundError(f"No supported images found under {source_images}")
+    if not xml_by_stem:
+        raise FileNotFoundError(f"No Pascal VOC XML files found under {source_xml}")
     random.Random(seed).shuffle(images); n = len(images); cuts = (int(n*.70), int(n*.85))
-    for split, group in zip(("train", "val", "test"), (images[:cuts[0]], images[cuts[0]:cuts[1]], images[cuts[1:]])):
+    for split, group in zip(("train", "val", "test"), (images[:cuts[0]], images[cuts[0]:cuts[1]], images[cuts[1]:])):
         for image in group:
             target_img = Path(destination) / "images" / split / image.name
             target_lbl = Path(destination) / "labels" / split / f"{image.stem}.txt"
             target_img.parent.mkdir(parents=True, exist_ok=True); shutil.copy2(image, target_img)
-            xml = Path(source_xml) / f"{image.stem}.xml"
-            if xml.exists(): xml_to_yolo(xml, target_lbl)
+            xml = xml_by_stem.get(image.stem.lower())
+            if xml: xml_to_yolo(xml, target_lbl)
+            else: raise FileNotFoundError(f"No XML annotation matches image: {image.name}")

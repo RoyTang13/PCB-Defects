@@ -17,5 +17,5 @@ else:
         try:
             matched, score = template_match(enhanced, clahe_lab(template, clip, tile)); st.image([image, enhanced, matched], channels="BGR", caption=["Original", "CLAHE enhanced", f"Template result (score {score:.3f})"])
             if st.button("Run YOLOv8 Detection"):
-                result, objects, _ = detect(enhanced); st.image(result, channels="BGR"); st.write(f"Defects: {len(objects)}")
+                result, objects, _ = detect(enhanced, "jiading"); st.image(result, channels="BGR"); st.write(f"Defects: {len(objects)}")
         except ValueError as e: st.warning(str(e))

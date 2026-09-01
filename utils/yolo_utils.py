@@ -3,14 +3,25 @@ import shutil
 import cv2
 import streamlit as st
 from ultralytics import YOLO
-from config import ROOT, RESULTS_DIR, YOLO_SETTINGS, DATASET_DIR, PROCESSED_DIR, CLASS_NAMES
+from config import ROOT, RESULTS_DIR, MODELS_DIR, YOLO_SETTINGS, DATASET_DIR, PROCESSED_DIR, CLASS_NAMES
 
 @st.cache_resource(show_spinner=False)
-def load_model(weights="yolov8n.pt"):
+def load_model(weights):
     return YOLO(weights)
 
-def detect(image, weights="yolov8n.pt"):
-    model = load_model(weights)
+def trained_weights(experiment="baseline"):
+    """Prefer the experiment's trained model; use models/best.pt as a manual fallback."""
+    candidates = (RESULTS_DIR / experiment / "weights" / "best.pt", MODELS_DIR / "best.pt")
+    return next((path for path in candidates if path.is_file()), None)
+
+def detect(image, experiment="baseline", weights=None):
+    selected = Path(weights) if weights else trained_weights(experiment)
+    if selected is None:
+        raise FileNotFoundError(
+            f"No trained PCB model found for '{experiment}'. Train this experiment first; expected "
+            f"{RESULTS_DIR / experiment / 'weights' / 'best.pt'}."
+        )
+    model = load_model(str(selected))
     result = model.predict(image, conf=YOLO_SETTINGS["conf"], iou=YOLO_SETTINGS["iou"], verbose=False)[0]
     return result.plot(), [(result.names[int(box.cls[0])], float(box.conf[0])) for box in result.boxes], result.speed.get("inference")
 

@@ -14,4 +14,4 @@ else:
         image = uploaded_to_bgr(file); den, edge, contour = nlm_edge_contour(image, t1, t2)
         for col, pic, label in zip(st.columns(4), (image, den, edge, contour), ("Original", "Denoised", "Edges", "Contours")): col.image(pic, channels="BGR" if pic.ndim == 3 else "GRAY", caption=label)
         if st.button("Run YOLOv8 Detection"):
-            result, objects, _ = detect(contour); st.image(result, channels="BGR"); st.write(f"Defects: {len(objects)}")
+            result, objects, _ = detect(contour, "natasha"); st.image(result, channels="BGR"); st.write(f"Defects: {len(objects)}")
