@@ -5,8 +5,8 @@
 Create a virtual environment, then run `pip install -r requirements.txt`. Start the interface with `streamlit run app.py`.
 
 ## Dataset setup
-
-Download the Kaggle PCB Defects dataset. It uses Pascal VOC XML labels and stores both files in class subfolders. Run `convert_and_split(source_images, source_xml)` from `utils.dataset_utils`, for example with `PCB_DATASET/images` and `PCB_DATASET/Annotations`. This creates the fixed, seed-42 70/15/15 split in `dataset/`; run it once and reuse that split for every experiment.
+https://www.kaggle.com/datasets/akhatova/pcb-defects/data
+Download the Kaggle PCB Defects dataset. If it has Pascal VOC XML labels, place source images and XML files in separate folders, then run `convert_and_split(source_images, source_xml)` from `utils.dataset_utils`. This creates the fixed, seed-42 70/15/15 split in `dataset/`; run it once and reuse that split for every experiment.
 
 `data.yaml` points at this dataset and contains the six expected classes. The converter writes normalized YOLO `class x_center y_center width height` annotations.
 
