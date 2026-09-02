@@ -1,14 +1,18 @@
 import streamlit as st
-from utils.yolo_utils import uploaded_to_bgr, detect, train_experiment, prepare_processed_dataset
+from config import SMOKE_SETTINGS
+from utils.yolo_utils import uploaded_to_bgr, detect, prepare_processed_dataset, prepare_smoke_dataset, render_training_output, run_training_with_progress
 from utils.preprocessing import clahe_lab, template_match
 st.title("Jia Ding — CLAHE + Template Matching")
 st.caption("Original → LAB CLAHE → template matching → YOLOv8n")
 mode = st.radio("Mode", ["Demo Mode", "Experiment Mode"], horizontal=True)
 if mode == "Experiment Mode":
     st.info("Template matching is a visual/diagnostic stage; dataset training uses the geometry-preserving CLAHE output.")
+    if st.button("Run small Jia Ding smoke test"):
+        run_training_with_progress("jiading_smoke_balanced", lambda progress: prepare_smoke_dataset("jiading_smoke_balanced", clahe_lab, progress), SMOKE_SETTINGS["epochs"], "Jia Ding smoke test")
     if st.button("Prepare dataset and train Jia Ding (100 epochs)"):
-        try: train_experiment("jiading", prepare_processed_dataset("jiading", lambda x: clahe_lab(x)))
-        except Exception as e: st.error(str(e))
+        run_training_with_progress("jiading", lambda progress: prepare_processed_dataset("jiading", clahe_lab, progress), 100, "Jia Ding full experiment")
+    render_training_output("jiading_smoke_balanced")
+    render_training_output("jiading")
 else:
     clip = st.slider("CLAHE clipLimit", 1.0, 10.0, 2.0); tile = st.select_slider("tileGridSize", [4, 8, 16], value=8)
     image_file = st.file_uploader("PCB target image", type=["jpg", "jpeg", "png", "bmp"]); template_file = st.file_uploader("Normal/reference template", type=["jpg", "jpeg", "png", "bmp"])
@@ -17,5 +21,7 @@ else:
         try:
             matched, score = template_match(enhanced, clahe_lab(template, clip, tile)); st.image([image, enhanced, matched], channels="BGR", caption=["Original", "CLAHE enhanced", f"Template result (score {score:.3f})"])
             if st.button("Run YOLOv8 Detection"):
-                result, objects, _ = detect(enhanced, "jiading"); st.image(result, channels="BGR"); st.write(f"Defects: {len(objects)}")
+                try:
+                    result, objects, _ = detect(enhanced, "jiading"); st.image(result, channels="BGR"); st.write(f"Defects: {len(objects)}")
+                except Exception as e: st.warning(str(e))
         except ValueError as e: st.warning(str(e))

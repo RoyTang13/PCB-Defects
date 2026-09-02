@@ -17,6 +17,14 @@ def nlm_edge_contour(image, threshold1=80, threshold2=160):
     cv2.drawContours(contour_image, contours, -1, (0, 255, 0), 1)
     return denoised, edges, contour_image
 
+def nlm_edge_contour_smoke(image, max_width=640):
+    """Fast smoke-test variant: scale only before NLM; normalized YOLO labels remain valid."""
+    height, width = image.shape[:2]
+    if width > max_width:
+        scale = max_width / width
+        image = cv2.resize(image, (max_width, round(height * scale)), interpolation=cv2.INTER_AREA)
+    return nlm_edge_contour(image)
+
 def clahe_lab(image, clip_limit=2.0, tile_size=8):
     lab = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
     l, a, b = cv2.split(lab)
@@ -58,11 +66,11 @@ def subtraction_morphology(reference, defective, kernel_size=5, iterations=1):
     morph = cv2.morphologyEx(morph, cv2.MORPH_CLOSE, kernel, iterations=iterations)
     return aligned, difference, binary, morph, success, message
 
-def process_directory(source, destination, processor):
+def process_directory(source, destination, processor, on_progress=None):
     """Apply a geometry-preserving processor to every image, retaining directory layout."""
     source, destination = Path(source), Path(destination)
-    for path in source.rglob("*"):
-        if path.suffix.lower() in IMAGE_EXTENSIONS:
+    paths = [path for path in source.rglob("*") if path.suffix.lower() in IMAGE_EXTENSIONS]
+    for index, path in enumerate(paths, start=1):
             image = cv2.imread(str(path))
             if image is not None:
                 output = processor(image)
@@ -70,3 +78,4 @@ def process_directory(source, destination, processor):
                 out_path = destination / path.relative_to(source)
                 out_path.parent.mkdir(parents=True, exist_ok=True)
                 cv2.imwrite(str(out_path), output)
+                if on_progress: on_progress(index, len(paths), f"Preprocessing {path.name}")

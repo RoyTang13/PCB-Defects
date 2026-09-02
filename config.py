@@ -11,6 +11,7 @@ EXPERIMENTS = {
     "jiading": "CLAHE + Template", "manas": "Subtraction + Morphology",
 }
 YOLO_SETTINGS = {"epochs": 100, "imgsz": 640, "batch": 16, "seed": 42, "conf": 0.25, "iou": 0.50}
+SMOKE_SETTINGS = {"epochs": 15, "train_per_class": 20, "val_per_class": 5, "test_per_class": 5}
 
 for folder in (DATASET_DIR, RESULTS_DIR, MODELS_DIR, PROCESSED_DIR):
     folder.mkdir(parents=True, exist_ok=True)

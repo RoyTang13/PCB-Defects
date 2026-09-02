@@ -14,6 +14,8 @@ Download the Kaggle PCB Defects dataset. If it has Pascal VOC XML labels, place 
 
 In every page, choose **Experiment Mode** and run training. All experiments use YOLOv8n, 100 epochs, 640 image size, batch 16, and seed 42. Results are kept separately in `results/<experiment>/`; metrics and confusion matrices are read by the Comparison page.
 
+Before the full experiment, each applicable page offers a balanced smoke test. It trains for 15 epochs on 20/5/5 images per class (120/30/30 total) and saves separately as `results/<experiment>_smoke_balanced`. This checks the setup and must not be included in the scientific comparison.
+
 For member datasets, use `utils.preprocessing.process_directory` with a geometry-preserving preprocessing function and copy the original labels unchanged. Do not create a new split. Manas requires correctly paired normal/reference images for valid full-dataset preprocessing.
 
 For Manas, put same-named normal reference images in `dataset/reference_images/train`, `val`, and `test`; the page aligns each pair with ORB before subtraction. This explicit pairing avoids subtracting unrelated boards.
