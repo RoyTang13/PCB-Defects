@@ -1,7 +1,7 @@
 task: detect
 mode: train
 model: yolov8n.pt
-data: D:\IT collage notes\Image Processing\processed_datasets\jiading_smoke_balanced\data.yaml
+data: C:\Users\user\OneDrive\Documents\GitHub\PCB-Defects\processed_datasets\jiading_smoke_balanced\data.yaml
 epochs: 15
 time: null
 patience: 100
@@ -12,7 +12,7 @@ save_period: -1
 cache: false
 device: ''
 workers: 8
-project: D:\IT collage notes\Image Processing\results
+project: C:\Users\user\OneDrive\Documents\GitHub\PCB-Defects\results
 name: jiading_smoke_balanced
 exist_ok: true
 pretrained: true
@@ -113,4 +113,4 @@ auto_augment: randaugment
 erasing: 0.4
 cfg: null
 tracker: tracktrack.yaml
-save_dir: D:\IT collage notes\Image Processing\results\jiading_smoke_balanced
+save_dir: C:\Users\user\OneDrive\Documents\GitHub\PCB-Defects\results\jiading_smoke_balanced
