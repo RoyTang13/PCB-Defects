@@ -119,11 +119,38 @@ def prepare_processed_dataset(experiment, processor, on_progress=None):
     yaml_path.write_text(f"path: {output.as_posix()}\ntrain: images/train\nval: images/val\ntest: images/test\nnames:\n{names}\n", encoding="utf-8")
     return yaml_path
 
+def find_manas_reference(reference_root, split, defective_path):
+    """Find a normal board reference by exact filename or PCB board number.
+
+    PCB_USED provides one clean image per board (for example ``01.JPG``),
+    whereas defect images add a defect suffix (for example
+    ``01_missing_hole_14.jpg``).  Exact same-named references remain
+    supported for datasets that provide them.
+    """
+    split_root = reference_root / split
+    exact = split_root / defective_path.name
+    if exact.is_file():
+        return exact
+
+    board_id = defective_path.stem.split("_", 1)[0]
+    candidates = (
+        split_root.glob(f"{board_id}.*"),
+        reference_root.glob(f"{board_id}.*"),
+    )
+    for group in candidates:
+        reference = next((path for path in group if path.suffix.lower() in {".jpg", ".jpeg", ".png", ".bmp"}), None)
+        if reference:
+            return reference
+    raise FileNotFoundError(
+        f"Missing normal reference for {defective_path.name}. Expected {exact} "
+        f"or a board reference such as {reference_root / (board_id + '.JPG')}."
+    )
+
 def prepare_manas_dataset(reference_root=None, kernel_size=5, iterations=1, on_progress=None):
-    """Create Manas data from same-named normal reference images in reference_images/<split>."""
+    """Create Manas data from paired normal reference images."""
     reference_root = Path(reference_root or DATASET_DIR / "reference_images")
     if not reference_root.exists():
-        raise FileNotFoundError("Create dataset/reference_images/train, val and test with same-named normal PCB references.")
+        raise FileNotFoundError("Add normal PCB references under dataset/reference_images (same-named split files or PCB_USED board files such as 01.JPG).")
     output = PROCESSED_DIR / "manas"
     if output.exists(): shutil.rmtree(output)
     shutil.copytree(DATASET_DIR / "labels", output / "labels")
@@ -131,8 +158,7 @@ def prepare_manas_dataset(reference_root=None, kernel_size=5, iterations=1, on_p
     paths = [(split, path) for split in ("train", "val", "test") for path in (DATASET_DIR / "images" / split).glob("*") if path.suffix.lower() in IMAGE_EXTENSIONS]
     for completed, (split, defective_path) in enumerate(paths, start=1):
             if defective_path.suffix.lower() not in IMAGE_EXTENSIONS: continue
-            ref_path = reference_root / split / defective_path.name
-            if not ref_path.exists(): raise FileNotFoundError(f"Missing paired reference: {ref_path}")
+            ref_path = find_manas_reference(reference_root, split, defective_path)
             ref, defective = cv2.imread(str(ref_path)), cv2.imread(str(defective_path))
             if ref is None or defective is None: raise ValueError(f"Unreadable image pair: {defective_path.name}")
             _, _, _, morph, _, _ = subtraction_morphology(ref, defective, kernel_size, iterations)
@@ -149,16 +175,14 @@ def prepare_manas_smoke_dataset(reference_root=None, kernel_size=5, iterations=1
     """Build a class-balanced Manas smoke dataset from same-named normal references."""
     reference_root = Path(reference_root or DATASET_DIR / "reference_images")
     if not reference_root.exists():
-        raise FileNotFoundError("Create dataset/reference_images/train, val and test with same-named normal PCB references.")
+        raise FileNotFoundError("Add normal PCB references under dataset/reference_images (same-named split files or PCB_USED board files such as 01.JPG).")
     output = PROCESSED_DIR / "manas_smoke_balanced"
     if output.exists(): shutil.rmtree(output)
     from utils.preprocessing import subtraction_morphology
     selected = balanced_smoke_images(); total = sum(len(paths) for paths in selected.values()); completed = 0
     for split, defective_paths in selected.items():
         for defective_path in defective_paths:
-            reference_path = reference_root / split / defective_path.name
-            if not reference_path.exists():
-                raise FileNotFoundError(f"Missing paired reference: {reference_path}")
+            reference_path = find_manas_reference(reference_root, split, defective_path)
             reference, defective = cv2.imread(str(reference_path)), cv2.imread(str(defective_path))
             if reference is None or defective is None:
                 raise ValueError(f"Unreadable image pair: {defective_path.name}")

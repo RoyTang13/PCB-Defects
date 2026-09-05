@@ -6,7 +6,7 @@ st.title("Manas — Subtraction + Morphological Processing")
 st.caption("Reference + defective → ORB alignment → subtraction → threshold → morphology → YOLOv8n")
 mode = st.radio("Mode", ["Demo Mode", "Experiment Mode"], horizontal=True)
 if mode == "Experiment Mode":
-    st.info("Place same-named normal references in `dataset/reference_images/train`, `val`, and `test`. The fixed split and its labels are retained.")
+    st.info("Place normal PCB references in `dataset/reference_images`. Either use same-named files in `train`, `val`, and `test`, or one board image per ID such as `01.JPG` (from PCB_USED). The fixed split and labels are retained.")
     st.caption(f"Smoke test: {SMOKE_SETTINGS['train_per_class']}/{SMOKE_SETTINGS['val_per_class']}/{SMOKE_SETTINGS['test_per_class']} images per class, {SMOKE_SETTINGS['epochs']} epochs.")
     if st.button("Run small Manas smoke test"):
         run_training_with_progress("manas_smoke_balanced", lambda progress: prepare_manas_smoke_dataset(on_progress=progress), SMOKE_SETTINGS["epochs"], "Manas smoke test")
