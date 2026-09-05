@@ -1,4 +1,4 @@
-path: D:/IT collage notes/Image Processing/processed_datasets/jiading_smoke_balanced
+path: C:/Users/user/OneDrive/Documents/GitHub/PCB-Defects/processed_datasets/jiading_smoke_balanced
 train: images/train
 val: images/val
 test: images/test

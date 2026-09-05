@@ -31,6 +31,161 @@ def clahe_lab(image, clip_limit=2.0, tile_size=8):
     enhanced_l = cv2.createCLAHE(clipLimit=clip_limit, tileGridSize=(tile_size, tile_size)).apply(l)
     return cv2.cvtColor(cv2.merge((enhanced_l, a, b)), cv2.COLOR_LAB2BGR)
 
+def clahe_lab(image, clip_limit=2.0, tile_size=8):
+    lab = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
+    l, a, b = cv2.split(lab)
+
+    enhanced_l = cv2.createCLAHE(
+        clipLimit=clip_limit,
+        tileGridSize=(tile_size, tile_size),
+    ).apply(l)
+
+    return cv2.cvtColor(
+        cv2.merge((enhanced_l, a, b)),
+        cv2.COLOR_LAB2BGR,
+    )
+
+
+def mild_clahe_unsharp(
+    image,
+    clip_limit=1.2,
+    tile_size=8,
+    sharpen_amount=0.4,
+    blur_kernel=5,
+    detail_threshold=5,
+):
+    """
+    Apply mild LAB-CLAHE followed by threshold-controlled
+    unsharp masking without changing image geometry.
+    """
+
+    if blur_kernel < 3:
+        blur_kernel = 3
+
+    if blur_kernel % 2 == 0:
+        blur_kernel += 1
+
+    lab = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
+    l_channel, a_channel, b_channel = cv2.split(lab)
+
+    clahe = cv2.createCLAHE(
+        clipLimit=clip_limit,
+        tileGridSize=(tile_size, tile_size),
+    )
+
+    enhanced_l = clahe.apply(l_channel)
+
+    enhanced_lab = cv2.merge(
+        (enhanced_l, a_channel, b_channel)
+    )
+
+    enhanced_image = cv2.cvtColor(
+        enhanced_lab,
+        cv2.COLOR_LAB2BGR,
+    )
+
+    blurred = cv2.GaussianBlur(
+        enhanced_image,
+        (blur_kernel, blur_kernel),
+        0,
+    )
+
+    sharpened = cv2.addWeighted(
+        enhanced_image,
+        1.0 + sharpen_amount,
+        blurred,
+        -sharpen_amount,
+        0,
+    )
+
+    detail_difference = cv2.absdiff(
+        enhanced_image,
+        blurred,
+    )
+
+    detail_mask = (
+        cv2.cvtColor(
+            detail_difference,
+            cv2.COLOR_BGR2GRAY,
+        )
+        >= detail_threshold
+    )
+
+    output = enhanced_image.copy()
+    output[detail_mask] = sharpened[detail_mask]
+
+    return output
+
+def mild_clahe_unsharp(
+    image,
+    clip_limit=1.2,
+    tile_size=8,
+    sharpen_amount=0.4,
+    blur_kernel=5,
+    detail_threshold=5,
+):
+    """
+    Apply mild LAB-CLAHE followed by threshold-controlled
+    unsharp masking without changing image geometry.
+    """
+
+    if blur_kernel < 3:
+        blur_kernel = 3
+
+    if blur_kernel % 2 == 0:
+        blur_kernel += 1
+
+    lab = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
+    l_channel, a_channel, b_channel = cv2.split(lab)
+
+    clahe = cv2.createCLAHE(
+        clipLimit=clip_limit,
+        tileGridSize=(tile_size, tile_size),
+    )
+
+    enhanced_l = clahe.apply(l_channel)
+
+    enhanced_lab = cv2.merge(
+        (enhanced_l, a_channel, b_channel)
+    )
+
+    enhanced_image = cv2.cvtColor(
+        enhanced_lab,
+        cv2.COLOR_LAB2BGR,
+    )
+
+    blurred = cv2.GaussianBlur(
+        enhanced_image,
+        (blur_kernel, blur_kernel),
+        0,
+    )
+
+    sharpened = cv2.addWeighted(
+        enhanced_image,
+        1.0 + sharpen_amount,
+        blurred,
+        -sharpen_amount,
+        0,
+    )
+
+    detail_difference = cv2.absdiff(
+        enhanced_image,
+        blurred,
+    )
+
+    detail_mask = (
+        cv2.cvtColor(
+            detail_difference,
+            cv2.COLOR_BGR2GRAY,
+        )
+        >= detail_threshold
+    )
+
+    output = enhanced_image.copy()
+    output[detail_mask] = sharpened[detail_mask]
+
+    return output
+
 def template_match(target, template):
     if template.shape[0] > target.shape[0] or template.shape[1] > target.shape[1]:
         raise ValueError("Reference template must not be larger than the target image.")
