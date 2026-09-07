@@ -1,12 +1,9 @@
 import streamlit as st
 
-from config import SMOKE_SETTINGS
-
 from utils.yolo_utils import (
     uploaded_to_bgr,
     detect,
     prepare_processed_dataset,
-    prepare_smoke_dataset,
     render_training_output,
     run_training_with_progress,
 )
@@ -15,7 +12,6 @@ from utils.preprocessing import mild_clahe_unsharp
 
 
 EXPERIMENT_NAME = "jiading_100epochs"
-SMOKE_EXPERIMENT_NAME = "jiading_smoke_balanced"
 
 
 st.title("Jia Ding — Mild LAB-CLAHE + Unsharp Masking")
@@ -88,19 +84,6 @@ if mode == "Experiment Mode":
         "are preserved, so the original YOLO labels remain valid."
     )
 
-    if st.button("Run small Jia Ding smoke test"):
-
-        run_training_with_progress(
-            SMOKE_EXPERIMENT_NAME,
-            lambda progress: prepare_smoke_dataset(
-                SMOKE_EXPERIMENT_NAME,
-                jiading_preprocess,
-                progress,
-            ),
-            SMOKE_SETTINGS["epochs"],
-            "Jia Ding smoke test",
-        )
-
     if st.button(
         "Prepare dataset and train Jia Ding (100 epochs)"
     ):
@@ -115,10 +98,6 @@ if mode == "Experiment Mode":
             100,
             "Jia Ding 100-epoch experiment",
         )
-
-    render_training_output(
-        SMOKE_EXPERIMENT_NAME
-    )
 
     render_training_output(
         EXPERIMENT_NAME

@@ -3,13 +3,10 @@ from pathlib import Path
 import cv2
 import numpy as np
 import streamlit as st
-
-from config import SMOKE_SETTINGS
 from utils.preprocessing import find_candidate_regions, subtraction_morphology
 from utils.yolo_utils import (
     detect,
     prepare_manas_dataset,
-    prepare_manas_smoke_dataset,
     render_training_output,
     run_training_with_progress,
     uploaded_to_bgr,
@@ -52,23 +49,8 @@ if mode == "Experiment Mode":
     )
     st.caption(
         f"Current preprocessing settings: {kernel_size}×{kernel_size} kernel, "
-        f"{iterations} iteration(s). The smoke test uses "
-        f"{SMOKE_SETTINGS['train_per_class']}/{SMOKE_SETTINGS['val_per_class']}/"
-        f"{SMOKE_SETTINGS['test_per_class']} images per class for "
-        f"{SMOKE_SETTINGS['epochs']} epochs."
+        f"{iterations} iteration(s). The fixed split and labels are retained."
     )
-
-    if st.button("Run small Manas smoke test"):
-        run_training_with_progress(
-            "manas_smoke_balanced",
-            lambda progress: prepare_manas_smoke_dataset(
-                kernel_size=kernel_size,
-                iterations=iterations,
-                on_progress=progress,
-            ),
-            SMOKE_SETTINGS["epochs"],
-            "Manas smoke test",
-        )
 
     if st.button("Prepare paired dataset and train Manas (100 epochs)"):
         run_training_with_progress(
@@ -82,7 +64,6 @@ if mode == "Experiment Mode":
             "Manas full experiment",
         )
 
-    render_training_output("manas_smoke_balanced")
     render_training_output("manas")
 else:
     st.caption("Upload the original image files rather than screenshots of the images.")

@@ -1,17 +1,13 @@
 import streamlit as st
-from config import SMOKE_SETTINGS
-from utils.yolo_utils import uploaded_to_bgr, detect, prepare_processed_dataset, prepare_smoke_dataset, render_training_output, run_training_with_progress
-from utils.preprocessing import nlm_edge_contour, nlm_edge_contour_smoke
+from utils.yolo_utils import uploaded_to_bgr, detect, prepare_processed_dataset, render_training_output, run_training_with_progress
+from utils.preprocessing import nlm_edge_contour
 st.title("Natasha — Non-Local Means + Edge / Contour")
 st.caption("NLM reduces noise while preserving edges and fine details. Original → NLM → Canny/contours → YOLOv8n")
 mode = st.radio("Mode", ["Demo Mode", "Experiment Mode"], horizontal=True)
 if mode == "Experiment Mode":
-    st.info("The smoke test scales images to 640 pixels wide before NLM so it completes quickly. This scale-only resize preserves normalized YOLO labels. The full 100-epoch experiment retains the original image dimensions.")
-    if st.button("Run small Natasha smoke test"):
-        run_training_with_progress("natasha_smoke_balanced", lambda progress: prepare_smoke_dataset("natasha_smoke_balanced", lambda x: nlm_edge_contour_smoke(x)[2], progress), SMOKE_SETTINGS["epochs"], "Natasha smoke test")
+    st.info("The fixed split is processed without geometry changes, so its YOLO labels are reused unchanged.")
     if st.button("Prepare dataset and train Natasha (100 epochs)"):
         run_training_with_progress("natasha", lambda progress: prepare_processed_dataset("natasha", lambda x: nlm_edge_contour(x)[2], progress), 100, "Natasha full experiment")
-    render_training_output("natasha_smoke_balanced")
     render_training_output("natasha")
 else:
     t1, t2 = st.slider("Canny thresholds", 0, 255, (80, 160)); file = st.file_uploader("Upload PCB image", type=["jpg", "jpeg", "png", "bmp"])
