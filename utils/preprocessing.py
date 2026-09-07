@@ -212,6 +212,11 @@ def align_reference(reference, target):
     return cv2.warpPerspective(reference, homography, (target.shape[1], target.shape[0])), True, "ORB homography alignment applied."
 
 def subtraction_morphology(reference, defective, kernel_size=5, iterations=1):
+    if kernel_size < 3 or kernel_size % 2 == 0:
+        raise ValueError("Morphology kernel size must be an odd number of at least 3.")
+    if iterations < 1:
+        raise ValueError("Morphology iterations must be at least 1.")
+
     aligned, success, message = align_reference(reference, defective)
     difference = cv2.absdiff(aligned, defective)
     gray = cv2.cvtColor(difference, cv2.COLOR_BGR2GRAY)
@@ -220,6 +225,28 @@ def subtraction_morphology(reference, defective, kernel_size=5, iterations=1):
     morph = cv2.morphologyEx(binary, cv2.MORPH_OPEN, kernel, iterations=iterations)
     morph = cv2.morphologyEx(morph, cv2.MORPH_CLOSE, kernel, iterations=iterations)
     return aligned, difference, binary, morph, success, message
+
+
+def find_candidate_regions(mask, minimum_area=20):
+    """Return bounding boxes for connected white regions in a binary mask."""
+    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    regions = []
+
+    for contour in contours:
+        area = cv2.contourArea(contour)
+        if area < minimum_area:
+            continue
+
+        x, y, width, height = cv2.boundingRect(contour)
+        regions.append({
+            "x": x,
+            "y": y,
+            "width": width,
+            "height": height,
+            "area": round(float(area), 1),
+        })
+
+    return sorted(regions, key=lambda region: region["area"], reverse=True)
 
 def process_directory(source, destination, processor, on_progress=None):
     """Apply a geometry-preserving processor to every image, retaining directory layout."""
