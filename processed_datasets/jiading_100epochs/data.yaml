@@ -1,4 +1,4 @@
-path: C:/Users/user/OneDrive/Documents/GitHub/PCB-Defects/processed_datasets/jiading_100epochs
+path: D:/IT collage notes/Image Processing/processed_datasets/jiading_100epochs
 train: images/train
 val: images/val
 test: images/test

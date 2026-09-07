@@ -17,14 +17,6 @@ def nlm_edge_contour(image, threshold1=80, threshold2=160):
     cv2.drawContours(contour_image, contours, -1, (0, 255, 0), 1)
     return denoised, edges, contour_image
 
-def nlm_edge_contour_smoke(image, max_width=640):
-    """Fast smoke-test variant: scale only before NLM; normalized YOLO labels remain valid."""
-    height, width = image.shape[:2]
-    if width > max_width:
-        scale = max_width / width
-        image = cv2.resize(image, (max_width, round(height * scale)), interpolation=cv2.INTER_AREA)
-    return nlm_edge_contour(image)
-
 def clahe_lab(image, clip_limit=2.0, tile_size=8):
     lab = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
     l, a, b = cv2.split(lab)
