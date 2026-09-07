@@ -1,4 +1,4 @@
-path: D:/IT collage notes/Image Processing/processed_datasets/natasha
+path: processed_datasets/natasha
 train: images/train
 val: images/val
 test: images/test

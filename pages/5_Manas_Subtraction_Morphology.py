@@ -15,58 +15,128 @@ def board_id(filename):
 def show_images(images):
     for start in range(0, len(images), 3):
         row = st.columns(3)
-        for column, (image, caption) in zip(row, images[start : start + 3]):
-            column.image(image, channels="GRAY" if image.ndim == 2 else "BGR", caption=caption)
+        for column, (image, caption) in zip(row, images[start:start + 3]):
+            channels = "GRAY" if image.ndim == 2 else "BGR"
+            column.image(image, channels=channels, caption=caption, use_container_width=True)
 
 
 st.title("Manas — Subtraction + Morphological Processing")
-st.caption("Reference + defective → ORB alignment → subtraction → Otsu thresholding → morphology → YOLOv8n")
+st.caption(
+    "Reference + defective → ORB alignment → subtraction → "
+    "Otsu thresholding → morphology → YOLOv8n"
+)
+
 mode = st.radio("Mode", ["Demo Mode", "Experiment Mode"], horizontal=True)
+
 settings = st.columns(2)
-kernel_size = settings[0].select_slider("Morphology kernel size", options=[3, 5, 7, 9], value=5)
+kernel_size = settings[0].select_slider(
+    "Morphology kernel size",
+    options=[3, 5, 7, 9],
+    value=5,
+)
 iterations = settings[1].slider("Morphology iterations", 1, 5, 1)
 
 if mode == "Experiment Mode":
-    st.info("Normal PCB references must be stored in `dataset/reference_images`. The defective image and its reference must have the same board ID, for example `01.JPG` and `01_mouse_bite_07.jpg`.")
-    st.caption(f"Current preprocessing settings: {kernel_size}×{kernel_size} kernel, {iterations} iteration(s). The fixed split and labels are retained.")
+    st.info(
+        "Normal PCB references must be stored in `dataset/reference_images`. "
+        "The defective image and its reference must have the same board ID, "
+        "for example `01.JPG` and `01_mouse_bite_07.jpg`."
+    )
+    st.caption(
+        f"Current preprocessing settings: {kernel_size}×{kernel_size} kernel, "
+        f"{iterations} iteration(s). The fixed split and labels are retained."
+    )
+
     if st.button("Prepare paired dataset and train Manas (100 epochs)"):
-        run_training_with_progress("manas", lambda progress: prepare_manas_dataset(kernel_size=kernel_size, iterations=iterations, on_progress=progress), 100, "Manas full experiment")
+        run_training_with_progress(
+            "manas",
+            lambda progress: prepare_manas_dataset(
+                kernel_size=kernel_size,
+                iterations=iterations,
+                on_progress=progress,
+            ),
+            100,
+            "Manas full experiment",
+        )
+
     render_training_output("manas")
 else:
     st.caption("Upload the original image files rather than screenshots of the images.")
-    reference_file = st.file_uploader("Reference / normal PCB", type=["jpg", "jpeg", "png", "bmp"])
-    defective_file = st.file_uploader("Defective PCB", type=["jpg", "jpeg", "png", "bmp"])
+    reference_file = st.file_uploader(
+        "Reference / normal PCB",
+        type=["jpg", "jpeg", "png", "bmp"],
+    )
+    defective_file = st.file_uploader(
+        "Defective PCB",
+        type=["jpg", "jpeg", "png", "bmp"],
+    )
+
     if reference_file and defective_file:
         uploaded_names = (reference_file.name.lower(), defective_file.name.lower())
         if any(name.startswith("screen") for name in uploaded_names):
             st.warning("These files look like screenshots. Original PCB files give more reliable alignment.")
-        reference_name, defective_name = board_id(reference_file.name), board_id(defective_file.name)
+
+        reference_name = board_id(reference_file.name)
+        defective_name = board_id(defective_file.name)
         if reference_name != defective_name:
-            st.warning(f"The board IDs do not match ({reference_name} and {defective_name}). Use a normal and defective image of the same PCB.")
-        reference, defective = uploaded_to_bgr(reference_file), uploaded_to_bgr(defective_file)
-        aligned, difference, binary, morphology, aligned_ok, alignment_message = subtraction_morphology(reference, defective, kernel_size, iterations)
+            st.warning(
+                f"The board IDs do not match ({reference_name} and {defective_name}). "
+                "Use a normal and defective image of the same PCB."
+            )
+
+        reference = uploaded_to_bgr(reference_file)
+        defective = uploaded_to_bgr(defective_file)
+        processing_result = subtraction_morphology(reference, defective, kernel_size, iterations)
+        aligned, difference, binary, morphology, aligned_ok, alignment_message = processing_result
+
         (st.success if aligned_ok else st.warning)(alignment_message)
-        show_images([(reference, "Reference"), (defective, "Defective"), (aligned, "Aligned reference"), (difference, "Absolute difference"), (binary, "Otsu binary mask"), (morphology, "After opening and closing")])
+        show_images([
+            (reference, "Reference"),
+            (defective, "Defective"),
+            (aligned, "Aligned reference"),
+            (difference, "Absolute difference"),
+            (binary, "Otsu binary mask"),
+            (morphology, "After opening and closing"),
+        ])
+
         candidate_regions = find_candidate_regions(morphology)
         white_pixel_percentage = np.count_nonzero(morphology) / morphology.size * 100
         summary = st.columns(2)
         summary[0].metric("Candidate regions", len(candidate_regions))
         summary[1].metric("White pixels", f"{white_pixel_percentage:.3f}%")
+
         if candidate_regions:
             with st.expander("Candidate-region measurements"):
-                st.dataframe(candidate_regions, hide_index=True)
+                st.dataframe(candidate_regions, hide_index=True, use_container_width=True)
+
         if st.button("Run YOLOv8 Detection"):
             try:
                 model_input = cv2.cvtColor(morphology, cv2.COLOR_GRAY2BGR)
                 result, objects, inference_time = detect(model_input, "manas")
-                st.image(result, channels="BGR", caption="YOLOv8 detection on morphology image")
+                st.image(
+                    result,
+                    channels="BGR",
+                    caption="YOLOv8 detection on morphology image",
+                )
+
                 result_columns = st.columns(2)
                 result_columns[0].metric("YOLO defects", len(objects))
                 if inference_time is not None:
                     result_columns[1].metric("Inference time", f"{inference_time:.1f} ms")
+
                 if objects:
-                    st.dataframe([{"Defect": name, "Confidence": round(confidence, 3)} for name, confidence in objects], hide_index=True)
+                    st.dataframe(
+                        [
+                            {"Defect": name, "Confidence": round(confidence, 3)}
+                            for name, confidence in objects
+                        ],
+                        hide_index=True,
+                        use_container_width=True,
+                    )
                 else:
-                    st.info("No YOLO defect was found. Candidate regions above come from classical image processing; YOLO results will remain unreliable until Manas training finishes.")
+                    st.info(
+                        "No YOLO defect was found. Candidate regions above come from classical "
+                        "image processing; YOLO results will remain unreliable until Manas training finishes."
+                    )
             except Exception as error:
                 st.warning(str(error))
