@@ -188,31 +188,6 @@ def template_match(target, template):
     cv2.rectangle(visual, location, (location[0] + w, location[1] + h), (0, 255, 0), 2)
     return visual, float(score)
 
-def align_reference(reference, target):
-    """Align reference to target via ORB/homography; returns fallback only if alignment fails."""
-    orb = cv2.ORB_create(3000)
-    gray_ref, gray_target = cv2.cvtColor(reference, cv2.COLOR_BGR2GRAY), cv2.cvtColor(target, cv2.COLOR_BGR2GRAY)
-    k1, d1 = orb.detectAndCompute(gray_ref, None); k2, d2 = orb.detectAndCompute(gray_target, None)
-    if d1 is None or d2 is None: return cv2.resize(reference, (target.shape[1], target.shape[0])), False, "No ORB descriptors found; resized fallback used."
-    matches = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True).match(d1, d2)
-    if len(matches) < 4: return cv2.resize(reference, (target.shape[1], target.shape[0])), False, "Too few ORB matches; resized fallback used."
-    matches = sorted(matches, key=lambda x: x.distance)[:100]
-    src = np.float32([k1[m.queryIdx].pt for m in matches]).reshape(-1, 1, 2)
-    dst = np.float32([k2[m.trainIdx].pt for m in matches]).reshape(-1, 1, 2)
-    homography, mask = cv2.findHomography(src, dst, cv2.RANSAC, 5.0)
-    if homography is None or mask is None or int(mask.sum()) < 4: return cv2.resize(reference, (target.shape[1], target.shape[0])), False, "Homography failed; resized fallback used."
-    return cv2.warpPerspective(reference, homography, (target.shape[1], target.shape[0])), True, "ORB homography alignment applied."
-
-def subtraction_morphology(reference, defective, kernel_size=5, iterations=1):
-    aligned, success, message = align_reference(reference, defective)
-    difference = cv2.absdiff(aligned, defective)
-    gray = cv2.cvtColor(difference, cv2.COLOR_BGR2GRAY)
-    _, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (kernel_size, kernel_size))
-    morph = cv2.morphologyEx(binary, cv2.MORPH_OPEN, kernel, iterations=iterations)
-    morph = cv2.morphologyEx(morph, cv2.MORPH_CLOSE, kernel, iterations=iterations)
-    return aligned, difference, binary, morph, success, message
-
 def process_directory(source, destination, processor, on_progress=None):
     """Apply a geometry-preserving processor to every image, retaining directory layout."""
     source, destination = Path(source), Path(destination)

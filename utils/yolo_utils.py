@@ -15,7 +15,7 @@ def trained_weights(experiment="baseline"):
     candidates = (RESULTS_DIR / experiment / "weights" / "best.pt", MODELS_DIR / "best.pt")
     return next((path for path in candidates if path.is_file()), None)
 
-def detect(image, experiment="baseline", weights=None):
+def detect(image, experiment="baseline", weights=None, confidence=None):
     selected = Path(weights) if weights else trained_weights(experiment)
     if selected is None:
         raise FileNotFoundError(
@@ -23,7 +23,12 @@ def detect(image, experiment="baseline", weights=None):
             f"{RESULTS_DIR / experiment / 'weights' / 'best.pt'}."
         )
     model = load_model(str(selected))
-    result = model.predict(image, conf=YOLO_SETTINGS["conf"], iou=YOLO_SETTINGS["iou"], verbose=False)[0]
+    result = model.predict(
+        image,
+        conf=YOLO_SETTINGS["conf"] if confidence is None else confidence,
+        iou=YOLO_SETTINGS["iou"],
+        verbose=False,
+    )[0]
     return result.plot(), [(result.names[int(box.cls[0])], float(box.conf[0])) for box in result.boxes], result.speed.get("inference")
 
 def train_experiment(experiment, data_yaml=None, epochs=None):
@@ -131,7 +136,8 @@ def prepare_manas_dataset(reference_root=None, kernel_size=5, iterations=1, on_p
     output = PROCESSED_DIR / "manas"
     if output.exists(): shutil.rmtree(output)
     shutil.copytree(DATASET_DIR / "labels", output / "labels")
-    from utils.preprocessing import subtraction_morphology, IMAGE_EXTENSIONS
+    from utils.manas_preprocessing import subtraction_morphology
+    from utils.preprocessing import IMAGE_EXTENSIONS
     paths = [(split, path) for split in ("train", "val", "test") for path in (DATASET_DIR / "images" / split).glob("*") if path.suffix.lower() in IMAGE_EXTENSIONS]
     for completed, (split, defective_path) in enumerate(paths, start=1):
             if defective_path.suffix.lower() not in IMAGE_EXTENSIONS: continue
@@ -163,7 +169,7 @@ def render_training_output(experiment, processed_dataset=None):
     st.subheader(f"Training output — {experiment}")
     class_metrics_path = run_dir / "class_metrics.csv"
     if class_metrics_path.exists():
-        st.subheader("Class-level validation performance")
+        st.subheader("Class-level validation performance (best.pt)")
         st.caption("Validation metrics from this module's saved best model.")
         st.dataframe(
             pd.read_csv(class_metrics_path),
