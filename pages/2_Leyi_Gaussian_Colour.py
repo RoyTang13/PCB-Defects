@@ -13,11 +13,32 @@ else:
     k = st.select_slider("Gaussian kernel", [3, 5, 7], value=5); cols = st.columns(2)
     lo = tuple(cols[0].slider(x, 0, 179 if x == "H minimum" else 255, 0) for x in ("H minimum", "S minimum", "V minimum"))
     hi = tuple(cols[1].slider(x, 0, 179 if x == "H maximum" else 255, 179 if x == "H maximum" else 255) for x in ("H maximum", "S maximum", "V maximum"))
+    inspect_low_confidence = st.toggle(
+        "Inspect low-confidence candidates",
+        value=False,
+        help="Use this only to diagnose missed detections; low-confidence boxes are not reliable results.",
+    )
+    confidence = 0.25
+    if inspect_low_confidence:
+        confidence = st.slider(
+            "Diagnostic confidence threshold",
+            min_value=0.01,
+            max_value=0.25,
+            value=0.25,
+            step=0.01,
+        )
+    st.caption("The trained Leyi model uses Gaussian kernel 5 and the full HSV range. Keep these defaults for the closest match to training.")
     file = st.file_uploader("Upload PCB image", type=["jpg", "jpeg", "png", "bmp"])
     if file:
         image = uploaded_to_bgr(file); blurred, mask, segmented = gaussian_colour(image, k, lo, hi)
         for col, pic, label in zip(st.columns(4), (image, blurred, mask, segmented), ("Original", "Gaussian filtered", "HSV mask", "Segmented")): col.image(pic, channels="BGR" if pic.ndim == 3 else "GRAY", caption=label)
         if st.button("Run YOLOv8 Detection"):
             try:
-                result, objects, _ = detect(segmented, "leyi"); st.image(result, channels="BGR"); st.write(f"Defects: {len(objects)}"); st.dataframe(objects, column_config={0:"Defect",1:"Confidence"})
+                result, objects, _ = detect(segmented, "leyi", confidence=confidence)
+                st.image(result, channels="BGR", caption=f"Leyi detections at confidence ≥ {confidence:.2f}")
+                st.write(f"Defects: {len(objects)}")
+                if objects:
+                    st.dataframe({"Defect": [name for name, _ in objects], "Confidence": [round(score, 3) for _, score in objects]}, hide_index=True)
+                else:
+                    st.warning("No reliable detection reached the confidence threshold. You can enable diagnostic mode to inspect weak candidates, but they should not be treated as confirmed defects.")
             except Exception as e: st.warning(str(e))

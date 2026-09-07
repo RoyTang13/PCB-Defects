@@ -3,14 +3,9 @@ from pathlib import Path
 import cv2
 import numpy as np
 import streamlit as st
-from utils.preprocessing import find_candidate_regions, subtraction_morphology
-from utils.yolo_utils import (
-    detect,
-    prepare_manas_dataset,
-    render_training_output,
-    run_training_with_progress,
-    uploaded_to_bgr,
-)
+
+from utils.manas_preprocessing import find_candidate_regions, subtraction_morphology
+from utils.yolo_utils import detect, prepare_manas_dataset, render_training_output, run_training_with_progress, uploaded_to_bgr
 
 
 def board_id(filename):

@@ -188,6 +188,8 @@ def template_match(target, template):
     cv2.rectangle(visual, location, (location[0] + w, location[1] + h), (0, 255, 0), 2)
     return visual, float(score)
 
+<<<<<<< HEAD
+=======
 def align_reference(reference, target):
     """Align reference to target via ORB/homography; returns fallback only if alignment fails."""
     orb = cv2.ORB_create(3000)
@@ -240,6 +242,7 @@ def find_candidate_regions(mask, minimum_area=20):
 
     return sorted(regions, key=lambda region: region["area"], reverse=True)
 
+>>>>>>> 35c18f17d2980412311616379ef390f32fd79e14
 def process_directory(source, destination, processor, on_progress=None):
     """Apply a geometry-preserving processor to every image, retaining directory layout."""
     source, destination = Path(source), Path(destination)
