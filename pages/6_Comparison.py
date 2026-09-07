@@ -2,11 +2,9 @@ import streamlit as st
 from config import RESULTS_DIR
 from utils.metrics import experiment_metrics, latest_result_paths
 st.title("Final Experiment Comparison")
-st.caption("The table selects the most recently completed real YOLO output for each technique. Smoke tests are labelled and must not be used as final scientific comparisons.")
+st.caption("The table uses only completed 100-epoch YOLO experiments.")
 frame = experiment_metrics(); display = frame.fillna("N/A - experiment has not been run.")
 st.dataframe(display, hide_index=True)
-if frame["Latest output"].astype(str).str.startswith("Smoke test").any():
-    st.warning("Some latest outputs are smoke tests. Run all five full 100-epoch experiments before interpreting improvement percentages.")
 for metric in ("Precision", "Recall", "mAP50", "mAP50-95"):
     available = frame.dropna(subset=[metric])
     st.subheader(f"{metric} comparison")

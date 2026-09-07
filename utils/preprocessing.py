@@ -17,19 +17,166 @@ def nlm_edge_contour(image, threshold1=80, threshold2=160):
     cv2.drawContours(contour_image, contours, -1, (0, 255, 0), 1)
     return denoised, edges, contour_image
 
-def nlm_edge_contour_smoke(image, max_width=640):
-    """Fast smoke-test variant: scale only before NLM; normalized YOLO labels remain valid."""
-    height, width = image.shape[:2]
-    if width > max_width:
-        scale = max_width / width
-        image = cv2.resize(image, (max_width, round(height * scale)), interpolation=cv2.INTER_AREA)
-    return nlm_edge_contour(image)
-
 def clahe_lab(image, clip_limit=2.0, tile_size=8):
     lab = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
     l, a, b = cv2.split(lab)
     enhanced_l = cv2.createCLAHE(clipLimit=clip_limit, tileGridSize=(tile_size, tile_size)).apply(l)
     return cv2.cvtColor(cv2.merge((enhanced_l, a, b)), cv2.COLOR_LAB2BGR)
+
+def clahe_lab(image, clip_limit=2.0, tile_size=8):
+    lab = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
+    l, a, b = cv2.split(lab)
+
+    enhanced_l = cv2.createCLAHE(
+        clipLimit=clip_limit,
+        tileGridSize=(tile_size, tile_size),
+    ).apply(l)
+
+    return cv2.cvtColor(
+        cv2.merge((enhanced_l, a, b)),
+        cv2.COLOR_LAB2BGR,
+    )
+
+
+def mild_clahe_unsharp(
+    image,
+    clip_limit=1.2,
+    tile_size=8,
+    sharpen_amount=0.4,
+    blur_kernel=5,
+    detail_threshold=5,
+):
+    """
+    Apply mild LAB-CLAHE followed by threshold-controlled
+    unsharp masking without changing image geometry.
+    """
+
+    if blur_kernel < 3:
+        blur_kernel = 3
+
+    if blur_kernel % 2 == 0:
+        blur_kernel += 1
+
+    lab = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
+    l_channel, a_channel, b_channel = cv2.split(lab)
+
+    clahe = cv2.createCLAHE(
+        clipLimit=clip_limit,
+        tileGridSize=(tile_size, tile_size),
+    )
+
+    enhanced_l = clahe.apply(l_channel)
+
+    enhanced_lab = cv2.merge(
+        (enhanced_l, a_channel, b_channel)
+    )
+
+    enhanced_image = cv2.cvtColor(
+        enhanced_lab,
+        cv2.COLOR_LAB2BGR,
+    )
+
+    blurred = cv2.GaussianBlur(
+        enhanced_image,
+        (blur_kernel, blur_kernel),
+        0,
+    )
+
+    sharpened = cv2.addWeighted(
+        enhanced_image,
+        1.0 + sharpen_amount,
+        blurred,
+        -sharpen_amount,
+        0,
+    )
+
+    detail_difference = cv2.absdiff(
+        enhanced_image,
+        blurred,
+    )
+
+    detail_mask = (
+        cv2.cvtColor(
+            detail_difference,
+            cv2.COLOR_BGR2GRAY,
+        )
+        >= detail_threshold
+    )
+
+    output = enhanced_image.copy()
+    output[detail_mask] = sharpened[detail_mask]
+
+    return output
+
+def mild_clahe_unsharp(
+    image,
+    clip_limit=1.2,
+    tile_size=8,
+    sharpen_amount=0.4,
+    blur_kernel=5,
+    detail_threshold=5,
+):
+    """
+    Apply mild LAB-CLAHE followed by threshold-controlled
+    unsharp masking without changing image geometry.
+    """
+
+    if blur_kernel < 3:
+        blur_kernel = 3
+
+    if blur_kernel % 2 == 0:
+        blur_kernel += 1
+
+    lab = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
+    l_channel, a_channel, b_channel = cv2.split(lab)
+
+    clahe = cv2.createCLAHE(
+        clipLimit=clip_limit,
+        tileGridSize=(tile_size, tile_size),
+    )
+
+    enhanced_l = clahe.apply(l_channel)
+
+    enhanced_lab = cv2.merge(
+        (enhanced_l, a_channel, b_channel)
+    )
+
+    enhanced_image = cv2.cvtColor(
+        enhanced_lab,
+        cv2.COLOR_LAB2BGR,
+    )
+
+    blurred = cv2.GaussianBlur(
+        enhanced_image,
+        (blur_kernel, blur_kernel),
+        0,
+    )
+
+    sharpened = cv2.addWeighted(
+        enhanced_image,
+        1.0 + sharpen_amount,
+        blurred,
+        -sharpen_amount,
+        0,
+    )
+
+    detail_difference = cv2.absdiff(
+        enhanced_image,
+        blurred,
+    )
+
+    detail_mask = (
+        cv2.cvtColor(
+            detail_difference,
+            cv2.COLOR_BGR2GRAY,
+        )
+        >= detail_threshold
+    )
+
+    output = enhanced_image.copy()
+    output[detail_mask] = sharpened[detail_mask]
+
+    return output
 
 def template_match(target, template):
     if template.shape[0] > target.shape[0] or template.shape[1] > target.shape[1]:
@@ -57,6 +204,11 @@ def align_reference(reference, target):
     return cv2.warpPerspective(reference, homography, (target.shape[1], target.shape[0])), True, "ORB homography alignment applied."
 
 def subtraction_morphology(reference, defective, kernel_size=5, iterations=1):
+    if kernel_size < 3 or kernel_size % 2 == 0:
+        raise ValueError("Morphology kernel size must be an odd number of at least 3.")
+    if iterations < 1:
+        raise ValueError("Morphology iterations must be at least 1.")
+
     aligned, success, message = align_reference(reference, defective)
     difference = cv2.absdiff(aligned, defective)
     gray = cv2.cvtColor(difference, cv2.COLOR_BGR2GRAY)
@@ -65,6 +217,28 @@ def subtraction_morphology(reference, defective, kernel_size=5, iterations=1):
     morph = cv2.morphologyEx(binary, cv2.MORPH_OPEN, kernel, iterations=iterations)
     morph = cv2.morphologyEx(morph, cv2.MORPH_CLOSE, kernel, iterations=iterations)
     return aligned, difference, binary, morph, success, message
+
+
+def find_candidate_regions(mask, minimum_area=20):
+    """Return bounding boxes for connected white regions in a binary mask."""
+    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    regions = []
+
+    for contour in contours:
+        area = cv2.contourArea(contour)
+        if area < minimum_area:
+            continue
+
+        x, y, width, height = cv2.boundingRect(contour)
+        regions.append({
+            "x": x,
+            "y": y,
+            "width": width,
+            "height": height,
+            "area": round(float(area), 1),
+        })
+
+    return sorted(regions, key=lambda region: region["area"], reverse=True)
 
 def process_directory(source, destination, processor, on_progress=None):
     """Apply a geometry-preserving processor to every image, retaining directory layout."""

@@ -1,20 +1,18 @@
 from pathlib import Path
 import shutil
-import random
 import cv2
 import pandas as pd
 import streamlit as st
 from ultralytics import YOLO
-from config import ROOT, RESULTS_DIR, MODELS_DIR, YOLO_SETTINGS, SMOKE_SETTINGS, DATASET_DIR, PROCESSED_DIR, CLASS_NAMES
+from config import ROOT, RESULTS_DIR, MODELS_DIR, YOLO_SETTINGS, DATASET_DIR, PROCESSED_DIR, CLASS_NAMES
 
 @st.cache_resource(show_spinner=False)
 def load_model(weights):
     return YOLO(weights)
 
 def trained_weights(experiment="baseline"):
-    """Prefer full weights, then matching smoke-test weights, then a manual fallback."""
-    smoke_name = "smoke_balanced" if experiment == "baseline" else f"{experiment}_smoke_balanced"
-    candidates = (RESULTS_DIR / experiment / "weights" / "best.pt", RESULTS_DIR / smoke_name / "weights" / "best.pt", MODELS_DIR / "best.pt")
+    """Use the completed experiment weights, with a manual fallback if supplied."""
+    candidates = (RESULTS_DIR / experiment / "weights" / "best.pt", MODELS_DIR / "best.pt")
     return next((path for path in candidates if path.is_file()), None)
 
 def detect(image, experiment="baseline", weights=None):
@@ -30,9 +28,37 @@ def detect(image, experiment="baseline", weights=None):
 
 def train_experiment(experiment, data_yaml=None, epochs=None):
     model = YOLO("yolov8n.pt")
-    return model.train(data=str(data_yaml or ROOT / "data.yaml"), project=str(RESULTS_DIR), name=experiment,
-                       exist_ok=True, epochs=epochs or YOLO_SETTINGS["epochs"], imgsz=YOLO_SETTINGS["imgsz"],
-                       batch=YOLO_SETTINGS["batch"], seed=YOLO_SETTINGS["seed"])
+    data_path = data_yaml or ROOT / "data.yaml"
+    result = model.train(data=str(data_path), project=str(RESULTS_DIR), name=experiment,
+                         exist_ok=True, epochs=epochs or YOLO_SETTINGS["epochs"], imgsz=YOLO_SETTINGS["imgsz"],
+                         batch=YOLO_SETTINGS["batch"], seed=YOLO_SETTINGS["seed"])
+    generate_class_metrics(experiment, data_path)
+    return result
+
+def generate_class_metrics(experiment, data_yaml):
+    """Validate a completed model and save its real per-class metrics."""
+    weights = RESULTS_DIR / experiment / "weights" / "best.pt"
+    if not weights.exists():
+        raise FileNotFoundError(f"No completed model found for '{experiment}'.")
+    metrics = YOLO(str(weights)).val(
+        data=str(data_yaml), split="val", imgsz=YOLO_SETTINGS["imgsz"],
+        batch=YOLO_SETTINGS["batch"], plots=False, verbose=False,
+        project=str(RESULTS_DIR / experiment), name="class_metrics", exist_ok=True,
+    )
+    rows = []
+    for class_id, class_name in enumerate(CLASS_NAMES):
+        precision, recall, map50, map50_95 = metrics.box.class_result(class_id)
+        rows.append({
+            "Defect class": class_name,
+            "Instances": int(metrics.nt_per_class[class_id]),
+            "Precision": precision,
+            "Recall": recall,
+            "mAP50": map50,
+            "mAP50-95": map50_95,
+        })
+    frame = pd.DataFrame(rows)
+    frame.to_csv(RESULTS_DIR / experiment / "class_metrics.csv", index=False)
+    return frame
 
 def run_training_with_progress(experiment, prepare_dataset, epochs, label):
     """Show Streamlit progress while a dataset is prepared, then train YOLO."""
@@ -50,59 +76,10 @@ def run_training_with_progress(experiment, prepare_dataset, epochs, label):
         status.update(label=f"{label} failed", state="error", expanded=True)
         st.error(str(error))
 
-def balanced_smoke_images():
-    """Return deterministic, class-balanced source images for each fixed split."""
-    selected = {}
-    for split in ("train", "val", "test"):
-        count = SMOKE_SETTINGS[f"{split}_per_class"]
-        grouped = {class_id: [] for class_id in range(len(CLASS_NAMES))}
-        for image in sorted((DATASET_DIR / "images" / split).glob("*")):
-            label = DATASET_DIR / "labels" / split / f"{image.stem}.txt"
-            if not label.exists(): continue
-            class_ids = {int(line.split()[0]) for line in label.read_text(encoding="utf-8").splitlines() if line.strip()}
-            # Dataset images are defect-class-specific. Assign a deterministic primary class if needed.
-            if class_ids: grouped[min(class_ids)].append(image)
-        image_paths = []
-        for class_id, choices in grouped.items():
-            if len(choices) < count:
-                raise ValueError(f"{split} has only {len(choices)} images for {CLASS_NAMES[class_id]}; needs {count}.")
-            image_paths.extend(random.Random(YOLO_SETTINGS["seed"] + class_id).sample(choices, count))
-        selected[split] = image_paths
-    return selected
-
 def write_dataset_yaml(output):
     yaml_path = output / "data.yaml"; names = "\n".join(f"  {i}: {name}" for i, name in enumerate(CLASS_NAMES))
     yaml_path.write_text(f"path: {output.as_posix()}\ntrain: images/train\nval: images/val\ntest: images/test\nnames:\n{names}\n", encoding="utf-8")
     return yaml_path
-
-def prepare_smoke_dataset(experiment="smoke_balanced", processor=None, on_progress=None):
-    """Create a deterministic balanced subset, retaining every class in every split."""
-    output = PROCESSED_DIR / experiment
-    if output.exists(): shutil.rmtree(output)
-    selected = balanced_smoke_images()
-    total = sum(len(images) for images in selected.values())
-    completed = 0
-    for split, image_paths in selected.items():
-        for image in image_paths:
-            target_image = output / "images" / split / image.name; target_image.parent.mkdir(parents=True, exist_ok=True)
-            if processor is None:
-                shutil.copy2(image, target_image)
-            else:
-                original = cv2.imread(str(image))
-                if original is None:
-                    raise ValueError(f"Unreadable image: {image}")
-                processed = processor(original)
-                processed = processed[-1] if isinstance(processed, tuple) else processed
-                if processed.ndim == 2:
-                    processed = cv2.cvtColor(processed, cv2.COLOR_GRAY2BGR)
-                cv2.imwrite(str(target_image), processed)
-            label = DATASET_DIR / "labels" / split / f"{image.stem}.txt"
-            target_label = output / "labels" / split / label.name; target_label.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(label, target_label)
-            completed += 1
-            if on_progress:
-                on_progress(completed, total, f"Preprocessing {split}: {image.name}")
-    return write_dataset_yaml(output)
 
 def prepare_processed_dataset(experiment, processor, on_progress=None):
     """Build a geometry-preserving copy of the fixed split and return its YAML file."""
@@ -171,31 +148,6 @@ def prepare_manas_dataset(reference_root=None, kernel_size=5, iterations=1, on_p
     yaml_path.write_text(f"path: {output.as_posix()}\ntrain: images/train\nval: images/val\ntest: images/test\nnames:\n{names}\n", encoding="utf-8")
     return yaml_path
 
-def prepare_manas_smoke_dataset(reference_root=None, kernel_size=5, iterations=1, on_progress=None):
-    """Build a class-balanced Manas smoke dataset from same-named normal references."""
-    reference_root = Path(reference_root or DATASET_DIR / "reference_images")
-    if not reference_root.exists():
-        raise FileNotFoundError("Add normal PCB references under dataset/reference_images (same-named split files or PCB_USED board files such as 01.JPG).")
-    output = PROCESSED_DIR / "manas_smoke_balanced"
-    if output.exists(): shutil.rmtree(output)
-    from utils.preprocessing import subtraction_morphology
-    selected = balanced_smoke_images(); total = sum(len(paths) for paths in selected.values()); completed = 0
-    for split, defective_paths in selected.items():
-        for defective_path in defective_paths:
-            reference_path = find_manas_reference(reference_root, split, defective_path)
-            reference, defective = cv2.imread(str(reference_path)), cv2.imread(str(defective_path))
-            if reference is None or defective is None:
-                raise ValueError(f"Unreadable image pair: {defective_path.name}")
-            _, _, _, morphology, _, _ = subtraction_morphology(reference, defective, kernel_size, iterations)
-            destination = output / "images" / split / defective_path.name; destination.parent.mkdir(parents=True, exist_ok=True)
-            cv2.imwrite(str(destination), cv2.cvtColor(morphology, cv2.COLOR_GRAY2BGR))
-            source_label = DATASET_DIR / "labels" / split / f"{defective_path.stem}.txt"
-            target_label = output / "labels" / split / source_label.name; target_label.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(source_label, target_label)
-            completed += 1
-            if on_progress: on_progress(completed, total, f"Processing {split}: {defective_path.name}")
-    return write_dataset_yaml(output)
-
 def uploaded_to_bgr(uploaded):
     raw = uploaded.getvalue(); image = cv2.imdecode(__import__("numpy").frombuffer(raw, __import__("numpy").uint8), cv2.IMREAD_COLOR)
     if image is None: raise ValueError("The uploaded file is not a valid image.")
@@ -209,6 +161,22 @@ def render_training_output(experiment, processed_dataset=None):
         return
     st.divider()
     st.subheader(f"Training output — {experiment}")
+    class_metrics_path = run_dir / "class_metrics.csv"
+    if class_metrics_path.exists():
+        st.subheader("Class-level validation performance")
+        st.caption("Validation metrics from this module's saved best model.")
+        st.dataframe(
+            pd.read_csv(class_metrics_path),
+            column_config={
+                "Precision": st.column_config.NumberColumn(format="%.3f"),
+                "Recall": st.column_config.NumberColumn(format="%.3f"),
+                "mAP50": st.column_config.NumberColumn(format="%.3f"),
+                "mAP50-95": st.column_config.NumberColumn(format="%.3f"),
+            },
+            hide_index=True,
+        )
+    else:
+        st.info("Class-level validation metrics have not been generated yet.")
     frame = pd.read_csv(csv_path)
     final = frame.iloc[-1]
     metric_columns = {
@@ -219,7 +187,7 @@ def render_training_output(experiment, processed_dataset=None):
     for column, (label, key) in zip(metrics, metric_columns.items()):
         value = final.get(key)
         column.metric(label, "N/A" if pd.isna(value) else f"{value:.3f}")
-    st.caption("These are the final validation metrics generated by YOLO; smoke-test metrics are only for checking the workflow.")
+    st.caption("These are the final validation metrics generated by YOLO.")
 
     processed_root = Path(processed_dataset) if processed_dataset else PROCESSED_DIR / experiment
     sample = next((processed_root / "images" / "train").glob("*"), None) if (processed_root / "images" / "train").exists() else None

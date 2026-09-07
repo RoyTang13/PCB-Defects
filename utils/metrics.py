@@ -1,16 +1,18 @@
 from pathlib import Path
 import pandas as pd
-from config import RESULTS_DIR, EXPERIMENTS
+from config import RESULTS_DIR, EXPERIMENTS, FULL_RESULT_FOLDERS
 
 def latest_result_paths():
-    """Return the newest real YOLO results.csv for each experiment, including smoke tests."""
+    """Return completed full-experiment YOLO result files only.
+
+    Only outputs registered as completed 100-epoch experiments are included.
+    """
     found = {}
     for key in EXPERIMENTS:
-        names = [key, "smoke_balanced", "smoke_test"] if key == "baseline" else [key, f"{key}_smoke_balanced", f"{key}_smoke_test"]
-        candidates = [(name, RESULTS_DIR / name / "results.csv") for name in names]
-        available = [(name, path) for name, path in candidates if path.exists()]
-        if available:
-            found[key] = max(available, key=lambda item: item[1].stat().st_mtime)
+        run_name = FULL_RESULT_FOLDERS[key]
+        path = RESULTS_DIR / run_name / "results.csv"
+        if path.exists():
+            found[key] = (run_name, path)
     return found
 
 def experiment_metrics():
@@ -23,7 +25,7 @@ def experiment_metrics():
             frame = pd.read_csv(csv_path); last = frame.iloc[-1]
             for label, column in (("Precision", "metrics/precision(B)"), ("Recall", "metrics/recall(B)"), ("mAP50", "metrics/mAP50(B)"), ("mAP50-95", "metrics/mAP50-95(B)")):
                 values[label] = last.get(column)
-        source = "Full experiment" if run_name == key else (f"Smoke test ({run_name})" if run_name else "N/A - experiment has not been run.")
+        source = "Full experiment" if run_name else "N/A - experiment has not been run."
         rows.append({"Experiment": name, "Latest output": source, "Result folder": run_name, **values})
     frame = pd.DataFrame(rows)
     baseline = frame.loc[frame.Experiment == EXPERIMENTS["baseline"], "mAP50"].iloc[0]
