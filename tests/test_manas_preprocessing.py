@@ -3,7 +3,7 @@ import unittest
 import cv2
 import numpy as np
 
-from utils.preprocessing import find_candidate_regions, subtraction_morphology
+from utils.manas_preprocessing import find_candidate_regions, subtraction_morphology
 
 
 class ManasPreprocessingTests(unittest.TestCase):

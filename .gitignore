@@ -19,3 +19,4 @@ results/*/last.pt
 # Temporary smoke-test datasets and outputs
 processed_datasets/*_smoke_balanced/
 results/*_smoke_balanced/
+results/manas_saved_*/

@@ -1,7 +1,7 @@
 task: detect
 mode: train
-model: results\manas\weights\last.pt
-data: C:\Users\user\OneDrive\Documents\GitHub\PCB-Defects\processed_datasets\manas\data.yaml
+model: yolov8n.pt
+data: processed_datasets\manas\data.yaml
 epochs: 100
 time: null
 patience: 100
@@ -11,7 +11,7 @@ save: true
 save_period: -1
 cache: false
 device: ''
-workers: 0
+workers: 8
 project: C:\Users\user\OneDrive\Documents\GitHub\PCB-Defects\results
 name: manas
 exist_ok: true
@@ -25,7 +25,7 @@ single_cls: false
 rect: false
 cos_lr: false
 close_mosaic: 10
-resume: results\manas\weights\last.pt
+resume: false
 amp: true
 fraction: 1.0
 profile: false
@@ -77,7 +77,7 @@ momentum: 0.937
 weight_decay: 0.0005
 warmup_epochs: 3.0
 warmup_momentum: 0.8
-warmup_bias_lr: 0.0
+warmup_bias_lr: 0.1
 distill_model: null
 dis: 6.0
 box: 7.5

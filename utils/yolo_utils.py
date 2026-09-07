@@ -52,7 +52,13 @@ def generate_class_metrics(experiment, data_yaml):
     )
     rows = []
     for class_id, class_name in enumerate(CLASS_NAMES):
-        precision, recall, map50, map50_95 = metrics.box.class_result(class_id)
+        # Read the populated per-class arrays directly.  In newer
+        # Ultralytics versions class_result() can return zero values even
+        # when the validation summary contains valid metrics.
+        precision = float(metrics.box.p[class_id])
+        recall = float(metrics.box.r[class_id])
+        map50 = float(metrics.box.ap50[class_id])
+        map50_95 = float(metrics.box.ap[class_id].mean())
         rows.append({
             "Defect class": class_name,
             "Instances": int(metrics.nt_per_class[class_id]),
@@ -129,7 +135,7 @@ def find_manas_reference(reference_root, split, defective_path):
     )
 
 def prepare_manas_dataset(reference_root=None, kernel_size=5, iterations=1, on_progress=None):
-    """Create Manas data from paired normal reference images."""
+    """Create colour-preserving Manas data from paired normal reference images."""
     reference_root = Path(reference_root or DATASET_DIR / "reference_images")
     if not reference_root.exists():
         raise FileNotFoundError("Add normal PCB references under dataset/reference_images (same-named split files or PCB_USED board files such as 01.JPG).")
@@ -144,14 +150,20 @@ def prepare_manas_dataset(reference_root=None, kernel_size=5, iterations=1, on_p
             ref_path = find_manas_reference(reference_root, split, defective_path)
             ref, defective = cv2.imread(str(ref_path)), cv2.imread(str(defective_path))
             if ref is None or defective is None: raise ValueError(f"Unreadable image pair: {defective_path.name}")
-            _, _, _, morph, _, _ = subtraction_morphology(ref, defective, kernel_size, iterations)
-            # YOLO requires three-channel files; morphology is duplicated without changing geometry.
-            processed = cv2.cvtColor(morph, cv2.COLOR_GRAY2BGR)
+            _, _, _, morphology, _, _ = subtraction_morphology(ref, defective, kernel_size, iterations)
+            highlighted = defective.copy()
+            highlighted[morphology > 0] = (0, 0, 255)
+            processed = cv2.addWeighted(defective, 0.80, highlighted, 0.20, 0)
             destination = output / "images" / split / defective_path.name; destination.parent.mkdir(parents=True, exist_ok=True)
             cv2.imwrite(str(destination), processed)
             if on_progress: on_progress(completed, len(paths), f"Processing {split}: {defective_path.name}")
     yaml_path = output / "data.yaml"; names = "\n".join(f"  {i}: {name}" for i, name in enumerate(CLASS_NAMES))
-    yaml_path.write_text(f"path: {output.as_posix()}\ntrain: images/train\nval: images/val\ntest: images/test\nnames:\n{names}\n", encoding="utf-8")
+    yaml_path.write_text(
+        "path: processed_datasets/manas\n"
+        "train: images/train\nval: images/val\ntest: images/test\n"
+        f"names:\n{names}\n",
+        encoding="utf-8",
+    )
     return yaml_path
 
 def uploaded_to_bgr(uploaded):
