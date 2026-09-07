@@ -1,17 +1,13 @@
 import streamlit as st
-from config import SMOKE_SETTINGS
-from utils.yolo_utils import uploaded_to_bgr, detect, prepare_processed_dataset, prepare_smoke_dataset, render_training_output, run_training_with_progress
+from utils.yolo_utils import uploaded_to_bgr, detect, prepare_processed_dataset, render_training_output, run_training_with_progress
 from utils.preprocessing import gaussian_colour
 st.title("Leyi — Gaussian Filtering + Colour Segmentation")
 st.caption("Original → Gaussian noise reduction → HSV colour segmentation → YOLOv8n")
 mode = st.radio("Mode", ["Demo Mode", "Experiment Mode"], horizontal=True)
 if mode == "Experiment Mode":
     st.info("The fixed split is copied and processed without geometry changes, so its YOLO labels are reused unchanged.")
-    if st.button("Run small Leyi smoke test"):
-        run_training_with_progress("leyi_smoke_balanced", lambda progress: prepare_smoke_dataset("leyi_smoke_balanced", lambda x: gaussian_colour(x)[2], progress), SMOKE_SETTINGS["epochs"], "Leyi smoke test")
     if st.button("Prepare dataset and train Leyi (100 epochs)"):
         run_training_with_progress("leyi", lambda progress: prepare_processed_dataset("leyi", lambda x: gaussian_colour(x)[2], progress), 100, "Leyi full experiment")
-    render_training_output("leyi_smoke_balanced")
     render_training_output("leyi")
 else:
     k = st.select_slider("Gaussian kernel", [3, 5, 7], value=5); cols = st.columns(2)
