@@ -1,15 +1,19 @@
+# Compare validation metrics across completed experiments.
 import streamlit as st
 from config import RESULTS_DIR
 from utils.metrics import experiment_metrics, latest_result_paths
 st.title("Final Experiment Comparison")
 st.caption("The table reports each completed 100-epoch experiment at the validation epoch selected for its best.pt checkpoint.")
+# Load the best-checkpoint metrics for every experiment.
 frame = experiment_metrics()
 
+# Select the Jia Ding and baseline rows for the summary.
 jia_ding = frame.loc[frame["Experiment"] == "Mild LAB-CLAHE + Unsharp Masking"]
 baseline = frame.loc[frame["Experiment"] == "Baseline YOLOv8"]
 if not jia_ding.empty and not baseline.empty:
     jia_ding, baseline = jia_ding.iloc[0], baseline.iloc[0]
     if all(not value is None for value in (jia_ding["Recall"], jia_ding["mAP50"], baseline["Recall"], baseline["mAP50"])):
+        # Show the direct comparison when both experiments have metrics.
         with st.container(border=True):
             st.subheader("Mild LAB-CLAHE + Unsharp Masking advantages over baseline")
             recall, map50 = st.columns(2)
@@ -28,8 +32,11 @@ if not jia_ding.empty and not baseline.empty:
                 f"the baseline ({baseline['mAP50-95']:.4f}); the full table remains below."
             )
 
+# Show missing experiment results as N/A.
 display = frame.fillna("N/A - experiment has not been run.")
 st.dataframe(display, hide_index=True)
+
+# Draw one chart for each validation metric.
 for metric in ("Precision", "Recall", "mAP50", "mAP50-95"):
     available = frame.dropna(subset=[metric])
     st.subheader(f"{metric} comparison")
@@ -37,6 +44,7 @@ for metric in ("Precision", "Recall", "mAP50", "mAP50-95"):
     else: st.bar_chart(available, x="Experiment", y=metric)
 st.subheader("Confusion matrices")
 found = False
+# Display confusion matrices for available result folders.
 for key, (run_name, _) in latest_result_paths().items():
     path = RESULTS_DIR / run_name / "confusion_matrix.png"
     if path.exists(): st.image(str(path), caption=f"{key}: {run_name}"); found = True

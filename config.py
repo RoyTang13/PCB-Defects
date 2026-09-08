@@ -15,7 +15,7 @@ FULL_RESULT_FOLDERS = {
     "baseline": "baseline",
     "leyi": "leyi",
     "natasha": "natasha",
-    "jiading": "jiading_100epochs",
+    "jiading": "jiading",
     "manas": "manas",
 }
 YOLO_SETTINGS = {"epochs": 100, "imgsz": 640, "batch": 16, "seed": 42, "conf": 0.25, "iou": 0.50}

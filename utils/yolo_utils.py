@@ -181,7 +181,7 @@ def render_training_output(experiment, processed_dataset=None):
     st.subheader(f"Training output — {experiment}")
     class_metrics_path = run_dir / "class_metrics.csv"
     if class_metrics_path.exists():
-        st.subheader("Class-level validation performance (best.pt)")
+        st.subheader("Class-level validation performance (last.pt)")
         st.caption("Validation metrics from this module's saved best model.")
         st.dataframe(
             pd.read_csv(class_metrics_path),

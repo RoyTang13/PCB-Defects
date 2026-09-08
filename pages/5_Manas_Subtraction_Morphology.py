@@ -1,3 +1,4 @@
+# Reference subtraction and morphological processing experiment.
 from pathlib import Path
 
 import cv2
@@ -37,6 +38,7 @@ kernel_size = settings[0].select_slider(
 iterations = settings[1].slider("Morphology iterations", 1, 5, 1)
 
 if mode == "Experiment Mode":
+    # Prepare paired reference images and train the Manas model.
     st.info(
         "Normal PCB references must be stored in `dataset/reference_images`. "
         "The defective image and its reference must have the same board ID, "
@@ -61,6 +63,7 @@ if mode == "Experiment Mode":
 
     render_training_output("manas")
 else:
+    # Upload a normal reference and a defective PCB image.
     st.caption("Upload the original image files rather than screenshots of the images.")
     reference_file = st.file_uploader(
         "Reference / normal PCB",
@@ -86,6 +89,7 @@ else:
 
         reference = uploaded_to_bgr(reference_file)
         defective = uploaded_to_bgr(defective_file)
+        # Align, subtract, threshold, and clean the defect mask.
         processing_result = subtraction_morphology(reference, defective, kernel_size, iterations)
         aligned, difference, binary, morphology, aligned_ok, alignment_message = processing_result
         highlighted = defective.copy()
@@ -104,6 +108,7 @@ else:
         ])
 
         candidate_regions = find_candidate_regions(morphology)
+        # Summarize connected candidate regions in the mask.
         white_pixel_percentage = np.count_nonzero(morphology) / morphology.size * 100
         summary = st.columns(2)
         summary[0].metric("Candidate regions", len(candidate_regions))
@@ -114,6 +119,7 @@ else:
                 st.dataframe(candidate_regions, hide_index=True, use_container_width=True)
 
         if st.button("Run YOLOv8 Detection"):
+            # Run YOLO on the colour-preserved highlighted image.
             try:
                 result, objects, inference_time = detect(colour_input, "manas")
                 st.image(

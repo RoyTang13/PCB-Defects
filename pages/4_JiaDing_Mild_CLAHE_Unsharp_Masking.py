@@ -1,3 +1,4 @@
+# LAB contrast enhancement and unsharp masking experiment.
 import cv2
 import numpy as np
 import streamlit as st
@@ -136,9 +137,7 @@ def jiading_demo_stages(image):
         cv2.NORM_MINMAX,
     )
 
-    # --------------------------------------------------------
     # Stage 4: Threshold-controlled detail mask
-    # --------------------------------------------------------
 
     detail_mask = np.where(
         detail_gray >= detail_threshold,
@@ -146,9 +145,7 @@ def jiading_demo_stages(image):
         0,
     ).astype(np.uint8)
 
-    # --------------------------------------------------------
     # Stage 5: Actual final preprocessing
-    # --------------------------------------------------------
 
     final_image = mild_clahe_unsharp(
         image,
@@ -167,9 +164,7 @@ def jiading_demo_stages(image):
     )
 
 
-# ============================================================
 # Experiment Mode
-# ============================================================
 
 if mode == "Experiment Mode":
 

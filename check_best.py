@@ -8,7 +8,7 @@ metrics = model.val(
     data="processed_datasets/jiading_100epochs/data.yaml"
 )
 
-print("\n===== BEST.PT VALIDATION RESULT =====")
+print("\nBest.pt validation result")
 print(f"Precision: {metrics.box.mp:.5f}")
 print(f"Recall: {metrics.box.mr:.5f}")
 print(f"mAP50: {metrics.box.map50:.5f}")

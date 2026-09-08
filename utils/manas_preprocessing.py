@@ -32,10 +32,15 @@ def subtraction_morphology(reference, defective, kernel_size=5, iterations=1):
         raise ValueError("Morphology kernel size must be an odd number of at least 3.")
     if iterations < 1:
         raise ValueError("Morphology iterations must be at least 1.")
+    # Align the reference board with the defective board.
     aligned, success, message = align_reference(reference, defective)
+    # Subtract the aligned reference from the defective image.
     difference = cv2.absdiff(aligned, defective)
+    # Convert the difference to grayscale.
     gray = cv2.cvtColor(difference, cv2.COLOR_BGR2GRAY)
+    # Create a binary defect mask with Otsu thresholding.
     _, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    # Remove noise and close gaps with morphology.
     kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (kernel_size, kernel_size))
     morphology = cv2.morphologyEx(binary, cv2.MORPH_OPEN, kernel, iterations=iterations)
     morphology = cv2.morphologyEx(morphology, cv2.MORPH_CLOSE, kernel, iterations=iterations)

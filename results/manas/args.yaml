@@ -1,7 +1,7 @@
 task: detect
 mode: train
 model: yolov8n.pt
-data: processed_datasets\manas\data.yaml
+data: D:\IT collage notes\Image Processing\processed_datasets\manas\data.yaml
 epochs: 100
 time: null
 patience: 100
@@ -12,7 +12,7 @@ save_period: -1
 cache: false
 device: ''
 workers: 8
-project: C:\Users\user\OneDrive\Documents\GitHub\PCB-Defects\results
+project: D:\IT collage notes\Image Processing\results
 name: manas
 exist_ok: true
 pretrained: true
@@ -45,7 +45,7 @@ max_det: 300
 quantize: null
 dnn: false
 plots: true
-nms: null
+end2end: null
 source: null
 vid_stride: 1
 stream_buffer: false
@@ -71,6 +71,7 @@ dynamic: false
 simplify: true
 opset: null
 workspace: null
+nms: false
 lr0: 0.01
 lrf: 0.01
 momentum: 0.937
@@ -112,4 +113,4 @@ auto_augment: randaugment
 erasing: 0.4
 cfg: null
 tracker: tracktrack.yaml
-save_dir: C:\Users\user\OneDrive\Documents\GitHub\PCB-Defects\results\manas
+save_dir: D:\IT collage notes\Image Processing\results\manas
