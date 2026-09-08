@@ -1,4 +1,4 @@
-path: C:/Users/user/OneDrive/Documents/GitHub/PCB-Defects/processed_datasets/manas
+path: processed_datasets/manas
 train: images/train
 val: images/val
 test: images/test

@@ -58,12 +58,15 @@ if run_all:
         if reference_file is not None:
             reference = uploaded_to_bgr(reference_file)
             _, _, _, morphology, aligned_ok, alignment_message = subtraction_morphology(reference, defective)
+            highlighted = defective.copy()
+            highlighted[morphology > 0] = (0, 0, 255)
+            colour_input = cv2.addWeighted(defective, 0.80, highlighted, 0.20, 0)
             pipelines.append(
                 (
                     "Subtraction + morphology",
                     "manas",
-                    cv2.cvtColor(morphology, cv2.COLOR_GRAY2BGR),
-                    alignment_message,
+                    colour_input,
+                    f"{alignment_message} Colour-preserved YOLO input.",
                 )
             )
             if not aligned_ok:

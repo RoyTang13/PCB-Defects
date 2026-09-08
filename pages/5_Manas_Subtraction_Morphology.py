@@ -88,6 +88,9 @@ else:
         defective = uploaded_to_bgr(defective_file)
         processing_result = subtraction_morphology(reference, defective, kernel_size, iterations)
         aligned, difference, binary, morphology, aligned_ok, alignment_message = processing_result
+        highlighted = defective.copy()
+        highlighted[morphology > 0] = (0, 0, 255)
+        colour_input = cv2.addWeighted(defective, 0.80, highlighted, 0.20, 0)
 
         (st.success if aligned_ok else st.warning)(alignment_message)
         show_images([
@@ -97,6 +100,7 @@ else:
             (difference, "Absolute difference"),
             (binary, "Otsu binary mask"),
             (morphology, "After opening and closing"),
+            (colour_input, "Colour-preserved YOLO input"),
         ])
 
         candidate_regions = find_candidate_regions(morphology)
@@ -111,12 +115,11 @@ else:
 
         if st.button("Run YOLOv8 Detection"):
             try:
-                model_input = cv2.cvtColor(morphology, cv2.COLOR_GRAY2BGR)
-                result, objects, inference_time = detect(model_input, "manas")
+                result, objects, inference_time = detect(colour_input, "manas")
                 st.image(
                     result,
                     channels="BGR",
-                    caption="YOLOv8 detection on morphology image",
+                    caption="YOLOv8 detection on colour-preserved image",
                 )
 
                 result_columns = st.columns(2)
