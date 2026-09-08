@@ -1,3 +1,5 @@
+import cv2
+import numpy as np
 import streamlit as st
 
 from utils.yolo_utils import (
@@ -75,6 +77,100 @@ def jiading_preprocess(image):
     )
 
 
+
+def jiading_demo_stages(image):
+
+
+
+    lab = cv2.cvtColor(
+        image,
+        cv2.COLOR_BGR2LAB,
+    )
+
+    l_channel, a_channel, b_channel = cv2.split(lab)
+
+    clahe = cv2.createCLAHE(
+        clipLimit=clip_limit,
+        tileGridSize=(tile_size, tile_size),
+    )
+
+    enhanced_l = clahe.apply(l_channel)
+
+    enhanced_lab = cv2.merge(
+        (
+            enhanced_l,
+            a_channel,
+            b_channel,
+        )
+    )
+
+    clahe_image = cv2.cvtColor(
+        enhanced_lab,
+        cv2.COLOR_LAB2BGR,
+    )
+
+
+    blurred = cv2.GaussianBlur(
+        clahe_image,
+        (blur_kernel, blur_kernel),
+        0,
+    )
+
+    detail = cv2.absdiff(
+        clahe_image,
+        blurred,
+    )
+
+    detail_gray = cv2.cvtColor(
+        detail,
+        cv2.COLOR_BGR2GRAY,
+    )
+
+    # Improve visibility for demonstration.
+    # This only affects the displayed detail image.
+    detail_display = cv2.normalize(
+        detail_gray,
+        None,
+        0,
+        255,
+        cv2.NORM_MINMAX,
+    )
+
+    # --------------------------------------------------------
+    # Stage 4: Threshold-controlled detail mask
+    # --------------------------------------------------------
+
+    detail_mask = np.where(
+        detail_gray >= detail_threshold,
+        255,
+        0,
+    ).astype(np.uint8)
+
+    # --------------------------------------------------------
+    # Stage 5: Actual final preprocessing
+    # --------------------------------------------------------
+
+    final_image = mild_clahe_unsharp(
+        image,
+        clip_limit=clip_limit,
+        tile_size=tile_size,
+        sharpen_amount=sharpen_amount,
+        blur_kernel=blur_kernel,
+        detail_threshold=detail_threshold,
+    )
+
+    return (
+        clahe_image,
+        detail_display,
+        detail_mask,
+        final_image,
+    )
+
+
+# ============================================================
+# Experiment Mode
+# ============================================================
+
 if mode == "Experiment Mode":
 
     st.info(
@@ -103,36 +199,90 @@ if mode == "Experiment Mode":
         EXPERIMENT_NAME
     )
 
-
 else:
 
     st.info(
-        f"Detection model: results/{EXPERIMENT_NAME}/weights/best.pt"
+        f"Detection model: "
+        f"results/{EXPERIMENT_NAME}/weights/best.pt"
     )
 
     image_file = st.file_uploader(
         "Upload PCB image",
-        type=["jpg", "jpeg", "png", "bmp"],
+        type=[
+            "jpg",
+            "jpeg",
+            "png",
+            "bmp",
+        ],
     )
 
     if image_file is not None:
 
         try:
-            original = uploaded_to_bgr(image_file)
-            processed = jiading_preprocess(original)
 
-            st.image(
-                [original, processed],
-                channels="BGR",
-                caption=[
-                    "Original PCB image",
-                    "Mild LAB-CLAHE + Unsharp Masking",
-                ],
+            original = uploaded_to_bgr(
+                image_file
             )
 
-            if st.button("Run YOLOv8 Detection"):
+            (
+                clahe_image,
+                detail_image,
+                detail_mask,
+                processed,
+            ) = jiading_demo_stages(
+                original
+            )
+
+            st.subheader("Preprocessing Stages")
+
+            row1 = st.columns(3)
+
+            with row1[0]:
+                st.image(
+                    original,
+                    channels="BGR",
+                    caption="Original",
+                    use_container_width=True,
+                )
+
+            with row1[1]:
+                st.image(
+                    clahe_image,
+                    channels="BGR",
+                    caption="Mild LAB-CLAHE",
+                    use_container_width=True,
+                )
+
+            with row1[2]:
+                st.image(
+                    detail_image,
+                    caption="Extracted Detail",
+                    use_container_width=True,
+                )
+
+            row2 = st.columns(2)
+
+            with row2[0]:
+                st.image(
+                    detail_mask,
+                    caption="Detail Mask",
+                    use_container_width=True,
+                )
+
+            with row2[1]:
+                st.image(
+                    processed,
+                    channels="BGR",
+                    caption="Final Processed",
+                    use_container_width=True,
+                )
+
+            if st.button(
+                "Run YOLOv8 Detection"
+            ):
 
                 try:
+
                     result, objects, inference_time = detect(
                         processed,
                         EXPERIMENT_NAME,
@@ -145,30 +295,40 @@ else:
                     )
 
                     st.write(
-                        f"Detected defects: {len(objects)}"
+                        f"Detected defects: "
+                        f"{len(objects)}"
                     )
 
                     if inference_time is not None:
+
                         st.write(
                             f"Inference time: "
                             f"{inference_time:.2f} ms"
                         )
 
                     if objects:
-                        st.subheader("Detected objects")
+
+                        st.subheader(
+                            "Detected objects"
+                        )
 
                         for class_name, confidence in objects:
+
                             st.write(
                                 f"{class_name}: "
                                 f"{confidence:.3f}"
                             )
 
                 except Exception as error:
+
                     st.warning(
-                        f"YOLO detection failed: {error}"
+                        f"YOLO detection failed: "
+                        f"{error}"
                     )
 
         except ValueError as error:
+
             st.warning(
-                f"Unable to process image: {error}"
+                f"Unable to process image: "
+                f"{error}"
             )
